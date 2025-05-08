@@ -1,0 +1,527 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Stop Signal Task</title>
+  <script src="jatos.js"></script>
+  <script src="js/jspsych-6.0.5/jspsych.js"></script>
+  <script src="js/jspsych-6.0.5/plugins/jspsych-instructions.js"></script>
+  <script src="js/jspsych-6.0.5/plugins/jspsych-html-keyboard-response.js"></script>
+  <script src="js/jspsych-6.0.5/plugins/jspsych-survey-text-beta-6.1.js"></script>
+  <script src="js/jspsych-6.0.5/plugins/jspsych-survey-multi-choice.js"></script>
+  <script src="js/jspsych-6.0.5/plugins/jspsych-call-function.js"></script>
+  <script src="js/jspsych-6.0.5/plugins/jspsych-fullscreen.js"></script>
+  <script src="js/jquery-1.7.1.min.js"></script>
+  <script src="js/bowser.js"></script>
+  <script src="js/sprintf.js"></script>
+  <script src="js/custom-stop-signal-plugin.js"></script>
+  <script src="js/jspsych-detect-held-down-keys.js"></script>
+  <script src="configuration/experiment_variables.js"></script>
+  <script src="configuration/text_variables.js"></script>
+  <link href="js/jspsych-6.0.5/css/jspsych.css" rel="stylesheet" type="text/css">
+</head>
+<body></body>
+
+<script>
+  /* #########################################################################
+  Initialize variables
+  ######################################################################### */
+
+  jatos.onLoad(function() {
+    // start your code here
+  });
+
+  var timeline = []; 
+  var trial_ind = 1; 
+  var block_ind = 0; 
+  var focus = 'focus'; 
+  var fullscr_ON = 'no'; 
+  var redirect_timeout = 1500; 
+
+  if (document.location.host) {
+    online = true;
+  } else {
+    online = false;
+  };
+
+  jsPsych.data.addProperties({
+    browser_name: bowser.name, 
+    browser_version: bowser.version,
+    os_name: bowser.osname, 
+    os_version: bowser.osversion,
+    tablet: String(bowser.tablet), 
+    mobile: String(bowser.mobile),
+    screen_resolution: screen.width + ' x ' + screen.height,
+    window_resolution: window.innerWidth + ' x ' + window.innerHeight, 
+  });
+
+  var pre_load_stimuli = [fix_stim, go_stim1, go_stim2, stop_stim1, stop_stim2];
+
+  /* #########################################################################
+  Create the design based on the input from 'experiment_variables.js'
+  ######################################################################### */
+
+  var ngostop = 1/nprop;
+  var ntrials = ngostop * 2;
+  var signalArray = Array(ngostop-1).fill('go');
+  signalArray[ngostop-1] = ('stop');
+
+  var factors = {
+    stim: [choice_stim1, choice_stim2],
+    signal: signalArray,
+  };
+
+  var design = jsPsych.randomization.factorial(factors, 1);
+
+  for (var i = 0; i < design.length; i++) {
+      design[i].data = {}
+      if ((design[i].stim == choice_stim1) && (design[i].signal == 'go')) {
+        design[i].fixation = fix_stim;
+        design[i].first_stimulus = go_stim1;
+        design[i].second_stimulus = go_stim1;
+        design[i].data.stim = choice_stim1;
+        design[i].data.correct_response = cresp_stim1;
+        design[i].data.signal = "no";
+      } else if ((design[i].stim == choice_stim2) && (design[i].signal == 'go')) {
+        design[i].fixation = fix_stim;
+        design[i].first_stimulus = go_stim2;
+        design[i].second_stimulus = go_stim2;
+        design[i].data.stim = choice_stim2;
+        design[i].data.correct_response = cresp_stim2;
+        design[i].data.signal = "no";
+      } else if ((design[i].stim == choice_stim1) && (design[i].signal == 'stop')) {
+        design[i].fixation = fix_stim;
+        design[i].first_stimulus = go_stim1;
+        design[i].second_stimulus = stop_stim1;
+        design[i].data.stim = choice_stim1;
+        design[i].data.correct_response = "undefined";
+        design[i].data.signal = "yes";
+      } else if ((design[i].stim == choice_stim2) && (design[i].signal == 'stop')) {
+        design[i].fixation = fix_stim;
+        design[i].first_stimulus = go_stim2;
+        design[i].second_stimulus = stop_stim2;
+        design[i].data.stim = choice_stim2;
+        design[i].data.correct_response = "undefined";
+        design[i].data.signal = "yes";
+      }
+      delete design[i].signal; delete design[i].stim;
+  };
+
+  /* #########################################################################
+  Define the individual events/trials that make up the experiment
+  ######################################################################### */
+
+  var welcome = {
+    type: "instructions",
+    pages: welcome_message,
+    show_clickable_nav: true,
+    allow_backward: false,
+    button_label_next: label_next_button,
+    on_start: function(trial){
+      if (bowser.name == 'Firefox' || bowser.name == 'Chrome'){
+        trial.pages = welcome_message;
+      } else {
+        trial.pages = not_supported_message;
+        setTimeout(function(){location.href="html/not_supported.html"}, 2000);
+      }
+    }
+  };
+
+  var fullscr = {
+    type: 'fullscreen',
+    fullscreen_mode: true,
+    message: full_screen_message,
+    button_label: label_next_button,
+  };
+
+  var fullscr_off = {
+    type: 'fullscreen',
+    fullscreen_mode: false,
+    button_label: label_next_button,
+  };
+
+  var consent = {
+    type: "instructions",
+    pages: [informed_consent_text],
+    show_clickable_nav: true,
+    button_label_next: label_consent_button,
+    allow_backward: false
+  };
+
+  var participant_id = {
+    type: 'survey-text',
+    questions: [{
+      prompt: subjID_instructions,
+      required: true
+    }],
+    button_label: label_next_button,
+    on_finish: function(data) {
+      var responses = JSON.parse(data.responses);
+      var code = responses.Q0;
+      jsPsych.data.addProperties({
+        participantID: code
+      });
+    }
+  };
+
+  var age = {
+    type: 'survey-text',
+    questions: [{
+      prompt: age_instructions,
+      required: true
+    }],
+    button_label: label_next_button,
+    on_finish: function(data) {
+      var responses = JSON.parse(data.responses);
+      var code = responses.Q0;
+      jsPsych.data.addProperties({
+        age: code
+      });
+    }
+  };
+
+  var gender = {
+    type: 'survey-multi-choice',
+    questions: [{
+      prompt: gender_instructions,
+      options: gender_options,
+      required: true
+    }],
+    button_label: label_next_button,
+    on_finish: function(data) {
+      var responses = JSON.parse(data.responses);
+      var code = responses.Q0;
+      jsPsych.data.addProperties({
+        gender: code
+      });
+    }
+  };
+
+  var instructions = {
+    type: "instructions",
+    pages: [page1, page2],
+    show_clickable_nav: true,
+    button_label_previous: label_previous_button,
+    button_label_next: label_next_button,
+  };
+
+  var block_start = {
+    type: 'html-keyboard-response',
+    stimulus: text_at_start_block,
+    choices: ['space']
+  };
+
+  var block_get_ready = {
+    type: 'html-keyboard-response',
+    stimulus: get_ready_message,
+    choices: jsPsych.NO_KEYS,
+    trial_duration: 2000,
+  };
+
+  var blank_ITI = {
+    type: 'jspsych-detect-held-down-keys',
+    stimulus: "",
+    trial_duration: ITI/2,
+    response_ends_trial: false,
+  };
+
+  var held_down_node = {
+      timeline: [blank_ITI],
+      loop_function: function(data){
+          if(data.values()[0].key_press != null){
+              return true;
+          } else {
+              return false;
+          }
+      }
+  };
+
+  var stimulus = {
+    type: 'custom-stop-signal-plugin',
+    fixation: jsPsych.timelineVariable('fixation'),
+    fixation_duration: FIX,
+    stimulus1: jsPsych.timelineVariable('first_stimulus'),
+    stimulus2: jsPsych.timelineVariable('second_stimulus'),
+    trial_duration: MAXRT,
+    ISI: function() {
+      var duration = SSD;
+      return duration;
+    },
+    response_ends_trial: true,
+    choices: [cresp_stim1, cresp_stim2],
+    data: jsPsych.timelineVariable('data'),
+    on_finish: function(data) {
+      data.response = jsPsych.pluginAPI.convertKeyCodeToKeyCharacter(data.key_press);
+      data.response = String(data.response);
+      data.correct = data.response == data.correct_response;
+      if (data.rt == -250) {
+        data.rt = null
+      };
+      if (data.signal == 'no' && data.rt < 0){
+        data.correct = false;
+      };
+      data.SSD = SSD;
+      data.trial_i = trial_ind;
+      data.block_i = block_ind;
+      trial_ind = trial_ind + 1;
+      if (data.signal == 'yes') {
+        if (data.correct) {
+          SSD = SSD + SSDstep;
+          if (SSD >= MAXRT) {
+            SSD = MAXRT - SSDstep;
+          };
+        } else {
+          SSD = SSD - SSDstep;
+          if (SSD <= SSDstep) {
+            SSD = SSDstep;
+          };
+        }
+      }
+      if (online) {
+        jatos.submitResultData(data);
+      }
+    }
+  };
+
+  var trial_feedback = {
+    type: 'html-keyboard-response',
+    choices: jsPsych.NO_KEYS,
+    trial_duration: iFBT,
+    stimulus: function() {
+      var last_trial_data = jsPsych.data.get().last(1).values()[0];
+      if (last_trial_data['signal'] === 'no') {
+        if (last_trial_data['correct']) {
+          return correct_msg;
+        } else {
+          if (last_trial_data['response'] === "undefined") {
+            return too_slow_msg;
+          } else {
+            if (last_trial_data['rt'] >= 0) {
+              return incorrect_msg;
+            } else {
+              return too_fast_msg;
+            }
+          }
+        }
+      } else {
+        if (last_trial_data['correct']) {
+          return correct_stop_msg;
+        } else {
+          if (last_trial_data['rt'] >= 0) {
+            return incorrect_stop_msg;
+          } else {
+            return too_fast_msg;
+          }
+        }
+      }
+    }
+  };
+
+  var block_feedback = {
+    type: 'html-keyboard-response',
+    trial_duration: bFBT,
+    choices: function() {
+      if (block_ind == NexpBL){
+        return ['p','space'];
+      } else {
+        return ['p'];
+      }
+    },
+    stimulus: function() {
+      var ns_trials = jsPsych.data.get().filter({
+        trial_type: 'custom-stop-signal-plugin',
+        block_i: block_ind,
+        signal: 'no'
+      });
+      var avg_nsRT = Math.round(ns_trials.select('rt').subset(function(x){ return x > 0; }).mean());
+      var prop_ns_Correct = Math.round(ns_trials.filter({
+        correct: true
+      }).count() / ns_trials.count() * 1000) / 1000;
+      var prop_ns_Missed = Math.round(ns_trials.filter({
+        key_press: null
+      }).count() / ns_trials.count() * 1000) / 1000;
+      var prop_ns_Incorrect = Math.round((1 - (prop_ns_Correct + prop_ns_Missed)) * 1000) / 1000;
+      var ss_trials = jsPsych.data.get().filter({
+        trial_type: 'custom-stop-signal-plugin',
+        block_i: block_ind,
+        signal: 'yes'
+      });
+      var prop_ss_Correct = Math.round(ss_trials.filter({
+        correct: true
+      }).count() / ss_trials.count() * 1000) / 1000;
+      if (block_ind == NexpBL){
+        var next_block_text = final_block_msg;
+      } else {
+        var count=(bFBT/1000);
+        var counter;
+        clearInterval(counter);
+        counter=setInterval(timer, 1000);
+        function timer(){
+          count=count-1;
+          if (count <= 0){
+              clearInterval(counter);
+          }
+          document.getElementById("timer").innerHTML = count;
+        }
+        var next_block_text = next_block_msg;
+      }
+      return [
+        no_signal_header +
+        sprintf(avg_rt_msg,avg_nsRT) +
+        sprintf(prop_miss_msg,prop_ns_Missed) +
+        stop_signal_header +
+        sprintf(prop_corr_msg,prop_ss_Correct) +
+        next_block_text
+      ]
+    },
+    on_finish: function() {
+      trial_ind = 1;
+      block_ind = block_ind + 1;
+    }
+  };
+
+  var NdesignReps_practice = 1;
+  var npractice_trials = 10;
+
+  var evaluate_end_if_practice = {
+    type: 'call-function',
+    func: function() {
+      if (block_ind == 0) {
+        if (trial_ind > npractice_trials) {
+          jsPsych.endCurrentTimeline();
+        }
+      }
+    }
+  };
+
+  var goodbye = {
+    type: "html-keyboard-response",
+    stimulus: end_message,
+    on_start: function(data) {
+      var subjID = jsPsych.data.get().last(1).values()[0]['participantID'];
+      var full_data = jsPsych.data.get();
+      var ignore_columns = ['raw_rt','trial_type','first_stimulus','second_stimulus','onset_of_first_stimulus',
+        'onset_of_second_stimulus','key_press','correct_response','trial_index','internal_node_id'];
+      var rows = {trial_type: 'custom-stop-signal-plugin'};
+      var selected_data = jsPsych.data.get().filter(rows).ignore(ignore_columns);
+      var d = selected_data.values();
+      var arr = ['participantID','block_i','trial_i','stim','signal','SSD','response','rt','correct','focus','Fullscreen',
+      'time_elapsed','browser_name','browser_version','os_name','os_version','tablet','mobile','screen_resolution','window_resolution'];
+      new_arr = [];
+      function myFunction(item) {
+        new_obj[item] = obj[item];
+        return new_obj;
+      }
+      for (i = 0; i < d.length; i++) {
+        obj = d[i];
+        new_obj = {};
+        arr.forEach(myFunction);
+        selected_data.values()[i] = new_obj;
+      }
+      if (!online) {
+        selected_data.localSave('csv', 'SST_data_' + subjID + '.csv');
+      } else {
+        jatos.submitResultData(selected_data.csv(), jatos.startNextComponent);
+      }
+    }
+  };
+
+  if (id == "participant"){
+    if (fullscreen){
+      var start_timeline = [welcome, participant_id, fullscr, instructions];
+    } else {
+      var start_timeline = [welcome, participant_id, instructions];
+    }
+  } else {
+      if (id == "url"){
+        var urlvar = jsPsych.data.urlVariables();
+        var code = urlvar.subject; 
+        jsPsych.data.addProperties({participantID: code});
+      } else {
+        var code = jsPsych.randomization.randomID(); 
+        jsPsych.data.addProperties({participantID: code});
+      }
+      if (fullscreen) {
+        var start_timeline = [welcome, fullscr, instructions];
+      } else {
+        var start_timeline = [welcome, instructions];
+      }
+  }
+
+  var start_procedure = {
+    timeline: start_timeline,
+  };
+
+  var feedback_node = {
+    timeline: [trial_feedback],
+    conditional_function: function() {
+      var last_trial_data = jsPsych.data.get().last(1).values()[0];
+      var current_block = block_ind;
+      if (current_block == 0) {
+        return true;
+      } else {
+        return false;
+      }
+    }
+  };
+
+  var trial_procedure = {
+    timeline: [blank_ITI, held_down_node, stimulus, feedback_node, evaluate_end_if_practice],
+    timeline_variables: design,
+    randomize_order: true,
+    repetitions: NdesignReps_exp,
+  };
+
+  var block_procedure = {
+    timeline: [block_start, block_get_ready, trial_procedure, block_feedback],
+    randomize_order: false,
+    repetitions: NexpBL+1,
+  };
+
+  if (fullscreen){
+    end_timeline = [fullscr_off, goodbye];
+  } else {
+    end_timeline = [goodbye];
+  }
+
+  var end_procedure = {
+    timeline: end_timeline,
+  };
+
+  timeline.push(start_procedure, block_procedure, end_procedure);
+
+  jsPsych.init({
+    timeline: timeline,
+    preload_images: pre_load_stimuli,
+    on_data_update: function(data) {
+      data.window_resolution =  window.innerWidth + ' x ' + window.innerHeight;
+      data.focus = focus; 
+      data.Fullscreen = fullscr_ON;
+      if (online) {
+        var subjID = jsPsych.data.get().last(1).values()[0]['participantID'];
+        if (data.trial_type == 'custom-stop-signal-plugin') {
+          jatos.submitResultData(data);
+        }
+      }
+    },
+    on_interaction_data_update: function(data) {
+      interaction = data.event;
+      if (interaction.includes("fullscreen")){
+        if (fullscr_ON == 'no') {fullscr_ON = 'yes'; return fullscr_ON}
+        else if (fullscr_ON == 'yes') {fullscr_ON = 'no'; return fullscr_ON}
+      }  else if (interaction == 'blur' || interaction == 'focus'){
+        focus = interaction;
+        return focus;
+      }
+    },
+    exclusions: {
+      min_width: minWidth,
+      min_height: minHeight
+    },
+    on_finish: function() {
+      if (redirect_onCompletion){
+        setTimeout("location.href = '" + redirect_link + "';",redirect_timeout);
+      }
+    },
+  });
+</script>
+</html>

@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Welcome screen</title>
+  <script src="jatos.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: rgb(223, 188, 205);
+      color: #333;
+      display: flex; /* Center the button and text horizontally */
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh; /* Set minimum height for full screen */
+      flex-direction: column; /* Stack elements vertically */
+    }
+
+    .start-button {
+      font-family: Arial, sans-serif;
+      font-size: 24px;
+      padding: 15px 25px;
+      border-radius: 2em;
+      border: none;
+      transition: background-color 0.4s ease-out;
+      background: #c673d9; /* Adjust button color as needed */
+      color: black;
+      font-weight: 500;
+      cursor: pointer;
+    }
+
+    .welcome-text {
+      font-size: 32px; /* Adjust welcome text size as needed */
+      margin-bottom: 20px; /* Add space between text and button */
+    }
+  </style>
+</head>
+<body>
+  <h1 class="welcome-text">Welcome, Gorgeous!</h1>
+  <button class="start-button" id="start-button">START</button>
+
+  <script>
+    const startButton = document.getElementById('start-button');
+
+    startButton.addEventListener('click', () => {
+      const startTime = new Date();
+      const data = {
+        "time_formatted": startTime.toISOString().replace('T', ' ').split('.')[0],
+        "UNIQUE_ID": new URLSearchParams(window.location.search).get('UNIQUE_ID'),
+        "screen_width": window.innerWidth,
+        "screen_height": window.innerHeight,
+        "browser": navigator.userAgent,
+      };
+      jatos.startNextComponent(data);
+    });
+  </script>
+</body>
+</html>

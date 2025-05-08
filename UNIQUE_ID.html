@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Enter Unique Identifier</title>
+  <style>
+    input[type=text], button {
+      font-size: 5vh;
+      padding: 8px;
+      margin: 5px 0;
+      border-radius: 4px;
+      border: 1px solid #ccc;
+    }
+
+    button {
+      border: none;
+      background-color: #4CAF50;
+      color: white;
+      cursor: pointer;
+    }
+  </style>
+
+  <script src="jatos.js"></script>
+  <script>
+    function confirmSubID() {
+      var subID = document.getElementById("subID").value;
+      var data2save = `${subID},\t${Date.now()}`;
+      sessionStorage.setItem('uniqueID', JSON.stringify(data2save));
+      jatos.startNextComponent(data2save);
+    }
+
+    jatos.onLoad(function () {
+      const studyJsonInput = jatos.studyJsonInput;
+      
+      // Set the text content if it exists in studyJsonInput, otherwise use default text
+      document.getElementById("enter_id").textContent = studyJsonInput.enter_id || "Enter your ID";
+      document.getElementById("subID").placeholder = studyJsonInput.placeholder || "Enter Unique ID";
+      document.getElementById("confirm_button").textContent = studyJsonInput.confirm_button || "Confirm";
+    });
+  </script>
+</head>
+<body>
+  <div id="subID_form">
+    <h1 id="enter_id" style="font-size: 5vh;">Enter your ID</h1>
+    <input type="text" id="subID" placeholder="Enter Unique ID">
+    <button id="confirm_button" onclick="confirmSubID()">Confirm</button>
+  </div>
+</body>
+</html>
+
